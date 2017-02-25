@@ -16,7 +16,7 @@ OneWire ds(ONE_WIRE_BUS);
 #ifdef SENSOR_DHT22
 #include <DHT.h>
 #include "../config.h"
-#define DHTPIN  2
+#define DHTPIN D6
 DHT dht(DHTPIN, DHTTYPE, 11); // 11 works fine for ESP8266
 #endif
 
