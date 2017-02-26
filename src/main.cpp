@@ -6,19 +6,47 @@
 #include <runningaverage.h>
 #include <array>
 
+// SSD1306 OLED screen includes
+#include "SSD1306Wire.h"
+#include "OLEDDisplayUi.h"
+#include "OLEDDisplayImages.h"
 
+/***************************
+ * Begin Settings
+ **************************/
+
+// DS18S20 Right now not tested yet, most likely we will have 
+// to change the PIN #
 #ifdef SENSOR_DS18S20
 #include <OneWire.h>
 #define ONE_WIRE_BUS 2  // DS18S20 pin
 OneWire ds(ONE_WIRE_BUS);
 #endif
 
+// DHT22 sensor plugged to D6 for us on our NodeMCU
 #ifdef SENSOR_DHT22
 #include <DHT.h>
 #include "../config.h"
 #define DHTPIN D6
 DHT dht(DHTPIN, DHTTYPE, 11); // 11 works fine for ESP8266
 #endif
+
+// Display Settings
+const int I2C_DISPLAY_ADDRESS = 0x3c;
+const int SDA_PIN = D2;
+const int SDC_PIN = D3;
+
+// Initialize the oled display for address 0x3c
+// sda-pin=D2 and sdc-pin=D3
+SSD1306Wire     display(I2C_DISPLAY_ADDRESS, SDA_PIN, SDC_PIN);
+OLEDDisplayUi   ui( &display );
+
+/***************************
+ * End Settings
+ **************************/
+
+//declaring prototypes
+void updateData(OLEDDisplay *display);
 
 MDNSResponder mdns;
 ESP8266WebServer server(80);
@@ -220,17 +248,51 @@ void ICACHE_FLASH_ATTR setup(void){
 		sensors_ok[i] = false;
 	}
 
-
 	Serial.begin(9600);
+	delay(500);
+
+    // Turn On VCC
+    pinMode(D4, OUTPUT);
+    digitalWrite(D4, HIGH);
+    // initialize display
+    display.init();
+    display.clear();
+    display.display();
+
+    //display.flipScreenVertically();
+    display.setFont(ArialMT_Plain_10);
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.setContrast(255);
+
 	WiFi.begin(ssid, password);
 	Serial.println("");
 	Serial.println("Wifi temperature sensor v0.1");
 
 	// Wait for connection
+    int counter = 0;
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
 		Serial.print(".");
+        display.clear();
+        display.drawString(64, 10, "Connecting to WiFi");
+        display.drawXbm(46, 30, 8, 8, counter % 3 == 0 ? activeSymbol : inactiveSymbol);
+        display.drawXbm(60, 30, 8, 8, counter % 3 == 1 ? activeSymbol : inactiveSymbol);
+        display.drawXbm(74, 30, 8, 8, counter % 3 == 2 ? activeSymbol : inactiveSymbol);
+        display.display();
+
+        counter++;
 	}
+    ui.setTargetFPS(30);
+
+    //Hack until disableIndicator works:
+    //Set an empty symbol
+    ui.setActiveSymbol(emptySymbol);
+    ui.setInactiveSymbol(emptySymbol);
+
+    ui.disableIndicator();
+
+    // Inital UI takes care of initalising the display too.
+    ui.init();
 
 	Serial.println("");
 	Serial.print("Connected to ");
@@ -297,7 +359,17 @@ void ICACHE_FLASH_ATTR setup(void){
 }
 
 void ICACHE_FLASH_ATTR loop(void){
-	server.handleClient();
+    // clear the display
+    display.clear();
+
+    display.setTextAlignment(TEXT_ALIGN_RIGHT);
+    display.drawString(10, 128, String(millis()));
+    // write the buffer to the display
+    display.display();
+
+    updateData(&display);
+    delay(10);
+    server.handleClient();
 	ESP.wdtFeed();
 	for (byte sensor_idx = 0; sensor_idx < MAX_NUM_SENSORS; ++sensor_idx) {
 		float temp = 0.0;
@@ -322,5 +394,20 @@ void ICACHE_FLASH_ATTR loop(void){
 				break;
 		}
 	}
+
 }
 
+void updateData(OLEDDisplay *display) {
+  String temperature;
+  String humidity;
+
+  temperature = String(temp_aggregators[0]->getAverage()) + " °C\n";
+  humidity = String(hum_aggregators[0]->getAverage()) + "% r.H.";
+  display->clear();
+  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  display->setFont(ArialMT_Plain_16);
+  display->drawString(64, 10, temperature);
+  display->drawString(64, 40, humidity);
+  display->display();
+  delay(1000);
+}
