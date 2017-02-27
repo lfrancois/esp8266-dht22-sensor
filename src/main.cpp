@@ -409,5 +409,5 @@ void updateData(OLEDDisplay *display) {
   display->drawString(64, 10, temperature);
   display->drawString(64, 40, humidity);
   display->display();
-  delay(1000);
+  delay(10000);
 }
