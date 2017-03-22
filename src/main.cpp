@@ -47,6 +47,7 @@ OLEDDisplayUi   ui( &display );
 
 //declaring prototypes
 void updateData(OLEDDisplay *display);
+void updateThingspeak();
 
 MDNSResponder mdns;
 ESP8266WebServer server(80);
@@ -377,11 +378,6 @@ void ICACHE_FLASH_ATTR loop(void){
 		switch (read_sensors(sensor_idx, temp, humidity)) {
 			case MEASURED_OK:
 				sensors_ok[sensor_idx] = true;
-//				Serial.println("Updating accumulator w/ new measurements");
-//				Serial.print("Sensor: ");
-//				Serial.print(sensor_idx);
-//				Serial.print(" temperature: ");
-//				Serial.println(temp);
 				temp_aggregators[sensor_idx]->addValue(temp);
 				hum_aggregators[sensor_idx]->addValue(humidity);
 				break;
@@ -401,7 +397,8 @@ void updateData(OLEDDisplay *display) {
   String temperature;
   String humidity;
 
-  temperature = String(temp_aggregators[0]->getAverage()) + " °C\n";
+  Serial.print("Update Data");
+  temperature = String(temp_aggregators[0]->getAverage()) + " °C";
   humidity = String(hum_aggregators[0]->getAverage()) + "% r.H.";
   display->clear();
   display->setTextAlignment(TEXT_ALIGN_CENTER);
@@ -409,5 +406,39 @@ void updateData(OLEDDisplay *display) {
   display->drawString(64, 10, temperature);
   display->drawString(64, 40, humidity);
   display->display();
+  updateThingspeak();
   delay(10000);
+}
+
+void updateThingspeak() {
+    String temperature = String(temp_aggregators[0]->getAverage());
+    String humidity = String(hum_aggregators[0]->getAverage());
+    String url = "/update?api_key=";
+    url += THINGSPEAK_API_KEY;
+    url += "&field1=";
+    url += temperature;
+    url += "&field2=";
+    url += humidity;
+
+    Serial.print("Requesting URL: ");
+    Serial.println(url);
+
+    // This will send the request to the server
+    Serial.print("connecting to ");
+    Serial.println(host);
+
+    // Use WiFiClient class to create TCP connections
+    WiFiClient client;
+    const int httpPort = 80;
+    if (!client.connect(host, httpPort)) {
+        Serial.println("connection failed");
+        return;
+    }
+    delay(10);
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+    delay(10);
+    Serial.println();
+    Serial.println("closing connection");
 }
