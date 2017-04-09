@@ -48,6 +48,7 @@ OLEDDisplayUi   ui( &display );
 //declaring prototypes
 void updateData(OLEDDisplay *display);
 void updateThingspeak();
+void updateInfluxDB();
 
 MDNSResponder mdns;
 ESP8266WebServer server(80);
@@ -406,8 +407,41 @@ void updateData(OLEDDisplay *display) {
   display->drawString(64, 10, temperature);
   display->drawString(64, 40, humidity);
   display->display();
+  updateInfluxDB();
   updateThingspeak();
   delay(10000);
+}
+
+void updateInfluxDB() {
+    String InfluxData;
+    String temperature = String(temp_aggregators[0]->getAverage());
+    String humidity = String(hum_aggregators[0]->getAverage());
+
+    Serial.println("Writing data to host " + String(INFLUXDB_HOST) + ":" + INFLUXDB_PORT + "'s database=" + String(DATABASE));
+    InfluxData = "ekho-" + String(mdnsname) + " temp=" + temperature + ",humidity=" + humidity;
+
+    WiFiClient client;
+    if (!client.connect(INFLUXDB_HOST, INFLUXDB_PORT)) {
+        Serial.println("connection failed");
+        return;
+    }
+    delay(10);
+    client.println("POST /write?db=" + String(DATABASE) + "HTTP/1.1");
+    client.println("Host: " + String(INFLUXDB_HOST) + ":" + String(INFLUXDB_PORT));
+    client.println("Connection: close");
+    client.println("Content-Type: application/x-www-form-urlencoded");
+    client.print("Content-Length: ");
+    client.println(InfluxData.length());
+    client.println();
+    client.println(InfluxData);
+
+    delay(50);
+    Serial.println("Reply from InfluxDB");
+    while(client.available()) {
+        Serial.print((char)client.read());
+    }
+    Serial.println();
+    client.stop();
 }
 
 void updateThingspeak() {
@@ -425,18 +459,18 @@ void updateThingspeak() {
 
     // This will send the request to the server
     Serial.print("connecting to ");
-    Serial.println(host);
+    Serial.println(THINGSPEAK_HOST);
 
     // Use WiFiClient class to create TCP connections
     WiFiClient client;
     const int httpPort = 80;
-    if (!client.connect(host, httpPort)) {
+    if (!client.connect(THINGSPEAK_HOST, httpPort)) {
         Serial.println("connection failed");
         return;
     }
     delay(10);
     client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-                 "Host: " + host + "\r\n" +
+                 "Host: " + THINGSPEAK_HOST + "\r\n" +
                  "Connection: close\r\n\r\n");
     delay(10);
     Serial.println();
