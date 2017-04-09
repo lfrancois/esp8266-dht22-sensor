@@ -46,7 +46,7 @@ OLEDDisplayUi   ui( &display );
  **************************/
 
 //declaring prototypes
-void updateData(OLEDDisplay *display);
+void updateDisplay(OLEDDisplay *display);
 void updateThingspeak();
 void updateInfluxDB();
 
@@ -206,6 +206,10 @@ int ICACHE_FLASH_ATTR read_sensors(byte bus_idx, float& temp, float& humidity) {
 		// Sensor readings may also be up to 2 seconds 'old' (it's a very slow sensor)
 		humidity = dht.readHumidity();          // Read humidity (percent)
 		temp = dht.readTemperature(false);     // Read temperature as Celsius
+		Serial.print("Temperature: ");
+		Serial.println(temp);
+		Serial.print("Humidity: ");
+		Serial.println(humidity);
 #endif
 
 		//Serial.print("Free heap:");
@@ -369,7 +373,9 @@ void ICACHE_FLASH_ATTR loop(void){
     // write the buffer to the display
     display.display();
 
-    updateData(&display);
+    updateDisplay(&display);
+    updateInfluxDB();
+    updateThingspeak();
     delay(10);
     server.handleClient();
 	ESP.wdtFeed();
@@ -394,7 +400,7 @@ void ICACHE_FLASH_ATTR loop(void){
 
 }
 
-void updateData(OLEDDisplay *display) {
+void updateDisplay(OLEDDisplay *display) {
   String temperature;
   String humidity;
 
@@ -407,8 +413,6 @@ void updateData(OLEDDisplay *display) {
   display->drawString(64, 10, temperature);
   display->drawString(64, 40, humidity);
   display->display();
-  updateInfluxDB();
-  updateThingspeak();
   delay(10000);
 }
 
@@ -426,14 +430,22 @@ void updateInfluxDB() {
         return;
     }
     delay(10);
-    client.println("POST /write?db=" + String(DATABASE) + "HTTP/1.1");
+    client.println("POST /write?db=" + String(DATABASE) + " HTTP/1.1");
+    Serial.println("POST /write?db=" + String(DATABASE) + " HTTP/1.1");
     client.println("Host: " + String(INFLUXDB_HOST) + ":" + String(INFLUXDB_PORT));
+    Serial.println("Host: " + String(INFLUXDB_HOST) + ":" + String(INFLUXDB_PORT));
     client.println("Connection: close");
+    Serial.println("Connection: close");
     client.println("Content-Type: application/x-www-form-urlencoded");
+    Serial.println("Content-Type: application/x-www-form-urlencoded");
     client.print("Content-Length: ");
+    Serial.print("Content-Length: ");
     client.println(InfluxData.length());
+    Serial.println(InfluxData.length());
     client.println();
+    Serial.println();
     client.println(InfluxData);
+    Serial.println(InfluxData);
 
     delay(50);
     Serial.println("Reply from InfluxDB");

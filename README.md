@@ -156,3 +156,19 @@ Useful commands:
 `platformio run` - process/build project from the current directory
 `platformio run --target upload` or `platformio run -t upload` - upload firmware to embedded board
 `platformio run --target clean` - clean project (remove compiled files)
+`platformio run -t upload && platformio serialports monitor`
+
+
+#### Hardware connections
+DHT22:
+ * V (volt): 3v3 pin from ESP8266
+ * D (data): D6 pin from ESP8266
+ * N (null): no where
+ * G (ground): GND pin from ESP8266
+
+OLED 0.96:
+
+ESP8266:
+ * GND (ground): ground line on the breadboard
+ * 3V3 (volt output): volt line on the breadboard
+ * D6 (GPIO12): to DHT22 data (D) pin
