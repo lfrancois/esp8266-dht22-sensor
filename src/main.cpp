@@ -276,7 +276,7 @@ void ICACHE_FLASH_ATTR setup(void){
 
 	// Wait for connection
     int counter = 0;
-	while (WiFi.status() != WL_CONNECTED) {
+	while (WiFi.status() != WL_CONNECTED && counter < 10) {
 		delay(500);
 		Serial.print(".");
         display.clear();
